@@ -17,7 +17,7 @@ jobs:
     name: "P0-4 Human Gate Check"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # A10 (2026-05-17): annotated tag contents are unreachable under the
           # default shallow clone; for-each-ref returns empty and the eval-SHA
@@ -84,7 +84,7 @@ jobs:
     environment: pypi-release
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -114,7 +114,7 @@ jobs:
     if: vars.HF_REPO_ID != ''  # Skip if HF_REPO_ID not configured
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
