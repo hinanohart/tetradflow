@@ -98,9 +98,14 @@ jobs:
       - name: Build sdist and wheel
         run: python -m build
 
+      # Trusted Publisher pending — flip on after PyPI config
+      # To activate: configure the PyPI trusted publisher at https://docs.pypi.org/trusted-publishers/
+      # for repo hinanohart/tetradflow, workflow file "release.yml", environment "pypi-release".
+      # Then remove the continue-on-error line below.
       - name: Publish to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
         # No api_token needed — uses OIDC via id-token: write permission above
+        continue-on-error: true  # Trusted Publisher pending — flip on after PyPI config
         with:
           print-hash: true
 
