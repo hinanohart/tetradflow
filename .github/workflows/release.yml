@@ -1,0 +1,149 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write  # Required for PyPI Trusted Publishing (OIDC)
+
+jobs:
+  # -----------------------------------------------------------------------
+  # P0-4: Human gate check MUST pass before any publish step
+  # -----------------------------------------------------------------------
+  gate-check:
+    name: "P0-4 Human Gate Check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A10 (2026-05-17): annotated tag contents are unreachable under the
+          # default shallow clone; for-each-ref returns empty and the eval-SHA
+          # verification below silently degrades to a false FAIL.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package
+        run: pip install -e ".[dev]" --quiet
+
+      - name: Download eval artifact (axes_map eval JSON)
+        # The eval JSON must be committed to the repo or uploaded as a CI artifact
+        # from a prior identify_axes_cca.py run. This step fails if not present.
+        run: |
+          if [ ! -f "checkpoints/eval_output.json" ]; then
+            echo "::error::checkpoints/eval_output.json not found."
+            echo "::error::Run: python scripts/identify_axes_cca.py --eval-json checkpoints/eval_output.json"
+            echo "::error::Commit the eval JSON before tagging a release."
+            exit 1
+          fi
+
+      - name: Compute eval JSON SHA256 (for tag-annotation verification)
+        id: sha
+        run: |
+          sha=$(sha256sum checkpoints/eval_output.json | cut -d' ' -f1)
+          echo "eval_sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "Eval JSON SHA256: $sha"
+
+      - name: Verify tag annotation pins eval SHA (M3 fix, 2026-05-17)
+        # The release tag MUST include the eval JSON SHA256 in its annotation,
+        # otherwise a stale or forged eval_output.json could pass gate-check.
+        # This is the operational counter to the "anyone can commit a forged
+        # JSON" attack vector. Tag with:
+        #   git tag -a v0.1.0 -m "eval_sha256=<sha>"
+        run: |
+          set -e
+          annotation=$(git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME")
+          expected="${{ steps.sha.outputs.eval_sha256 }}"
+          # A3 (2026-05-17): use printf + grep -Fq -- to neutralize glob/escape
+          # in $annotation (signed tags, multi-line bodies, leading dashes).
+          if ! printf '%s' "$annotation" | grep -Fq -- "eval_sha256=${expected}"; then
+            echo "::error::Tag $GITHUB_REF_NAME does not pin eval_sha256=${expected}"
+            echo "::error::Re-tag with: git tag -a $GITHUB_REF_NAME -m \"eval_sha256=${expected}\""
+            echo "::error::then: git push --tags --force-with-lease"
+            exit 1
+          fi
+          echo "::notice::Tag annotation correctly pins eval_sha256=${expected}"
+
+      - name: Run P0-4 gate check
+        run: python scripts/human_gate_check.py --eval-json checkpoints/eval_output.json
+
+  # -----------------------------------------------------------------------
+  # PyPI publish via Trusted Publishing (OIDC, no API token needed — R11)
+  # -----------------------------------------------------------------------
+  pypi:
+    name: "Publish to PyPI"
+    needs: gate-check
+    runs-on: ubuntu-latest
+    environment: pypi-release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build tools
+        run: pip install build --quiet
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No api_token needed — uses OIDC via id-token: write permission above
+        with:
+          print-hash: true
+
+  # -----------------------------------------------------------------------
+  # HuggingFace Hub model push (manual token via secret — R11)
+  # -----------------------------------------------------------------------
+  hf-hub:
+    name: "Push model to HuggingFace Hub"
+    needs: pypi
+    runs-on: ubuntu-latest
+    if: vars.HF_REPO_ID != ''  # Skip if HF_REPO_ID not configured
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package
+        run: pip install -e "." huggingface-hub --quiet
+
+      - name: Push SAE artifacts to HF Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}  # R11: token from secret, never hardcoded
+        run: |
+          if [ -f "checkpoints/sae.safetensors" ] && [ -f "checkpoints/axes_map.safetensors" ]; then
+            python scripts/push_to_hf.py \
+              --repo-id "${{ vars.HF_REPO_ID }}" \
+              --sae checkpoints/sae.safetensors \
+              --axes-map checkpoints/axes_map.safetensors \
+              --commit-message "Release ${{ github.ref_name }}"
+          else
+            echo "No checkpoint files found; skipping HF Hub push."
+          fi
+
+  # -----------------------------------------------------------------------
+  # HF Spaces deploy
+  # -----------------------------------------------------------------------
+  spaces-deploy:
+    name: "Deploy HF Spaces demo"
+    needs: hf-hub
+    uses: ./.github/workflows/spaces-deploy.yml
+    secrets: inherit

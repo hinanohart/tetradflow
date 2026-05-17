@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tetradflow"
+version = "0.0.1.dev0"
+description = "McLuhan Tetrad as inductive bias in Janus-Pro+Flux: SAE feature alignment + 4-divergent ODE sampling"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+  { name = "TetradFlow contributors" }
+]
+urls = { Homepage = "https://github.com/hinanohart/tetradflow", Repository = "https://github.com/hinanohart/tetradflow", Issues = "https://github.com/hinanohart/tetradflow/issues", Roadmap = "https://github.com/hinanohart/tetradflow/blob/main/ROADMAP.md" }
+keywords = [
+  "SAE",
+  "sparse-autoencoder",
+  "interpretability",
+  "flow-matching",
+  "McLuhan",
+  "tetrad",
+  "figure-ground",
+  "multimodal",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "torch>=2.1",
+  "transformers>=4.40",
+  "diffusers>=0.27",
+  "scikit-learn>=1.4",
+  "typer>=0.12",
+  "rich>=13",
+  "huggingface-hub>=0.22",
+  "einops>=0.7",
+  "numpy>=1.24",
+  "safetensors>=0.4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-cov",
+  "ruff>=0.4",
+  "mypy>=1.10",
+  "types-PyYAML",
+]
+spaces = [
+  "gradio>=4.28",
+  "spaces>=0.24",
+]
+# `research`: SAELens for baseline comparison. Not used by core tetradflow at
+# this time — our BatchTopK SAE is implemented in src/tetradflow/sae.py. Kept
+# as opt-in to (a) avoid bloating production install size and (b) allow
+# downstream researchers to compare against SAELens architectures.
+research = [
+  "sae-lens>=3.0",
+]
+
+[project.scripts]
+tetradflow = "tetradflow.cli:app"
+
+[tool.setuptools]
+# N2 (2026-05-18): include third-party attribution in the wheel/sdist so
+# binary redistributors meet Apache 2.0 §4(d) without separately tracking it.
+license-files = ["LICENSE", "THIRD_PARTY_LICENSES.md"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+# warn_unused_ignores intentionally off: third-party stubs (sklearn / safetensors
+# / spaces) come and go depending on the install environment, and forcing
+# developers to chase environment-specific `# type: ignore[import-untyped]`
+# churn provides no real safety. CI still catches actual type errors.
+warn_unused_ignores = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# M8 fix (2026-05-17): --strict-markers makes typo'd @pytest.mark.* fail collection,
+# preventing silent skips when a test is mismarked.
+addopts = ["--strict-markers", "-ra"]
+markers = [
+  "gpu: requires a CUDA-capable GPU",
+  "slow: long-running test",
+]

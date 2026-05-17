@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    name: "Test (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    # M1 (2026-05-18): minimum permission per job (read-only). Default repo
+    # workflow permission is set to read via `gh api PUT actions/permissions`
+    # but per-job declaration is a defence in depth.
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package (dev extras)
+        run: pip install -e ".[dev]" --quiet
+
+      - name: Ruff lint
+        run: ruff check src/ tests/ scripts/
+
+      - name: Mypy type check
+        run: mypy src/tetradflow/
+
+      - name: Pytest (CPU smoke tests, no GPU mark)
+        run: |
+          pytest tests/ -v \
+            -m "not gpu and not slow" \
+            --tb=short \
+            --cov=tetradflow \
+            --cov-report=term-missing
+
+      - name: Eval direct_metrics (P0-2 orthogonality, skip if no axes_map)
+        run: |
+          if [ -f "checkpoints/axes_map.safetensors" ]; then
+            pytest src/tetradflow/eval/direct_metrics.py -v \
+              --axes-map checkpoints/axes_map.safetensors
+          else
+            echo "No axes_map.safetensors found; skipping direct_metrics (P0-2 not yet run)."
+          fi
+
+  # ---------------------------------------------------------------------------
+  # G3 (2026-05-17): Secret + dependency CVE scan — R11 mechanisation
+  # ---------------------------------------------------------------------------
+  security:
+    name: "Security scan (gitleaks + pip-audit)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # gitleaks needs full history for secret-leak detection
+
+      - name: Gitleaks (secret scan, R11)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No org licence required for public repos. Disable artifact upload
+          # so any false-positive matches aren't preserved beyond the run log.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+          GITLEAKS_ENABLE_COMMENTS: "false"
+
+      - name: Set up Python (for pip-audit)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package
+        run: pip install -e ".[dev]" --quiet
+
+      - name: pip-audit (dependency CVE scan, advisory)
+        # 2026-05-18: advisory-only because torch / transformers ecosystem
+        # routinely carries unfixed CVEs whose upstream patches lag months.
+        # We surface findings in the job log but do NOT block the gate — that
+        # would leave the repo permanently red and force `--ignore-vuln`
+        # churn. To re-enable strict gating, drop `continue-on-error` and
+        # whitelist specific GHSA IDs via `pip-audit --ignore-vuln <id>`.
+        continue-on-error: true
+        run: |
+          pip install pip-audit --quiet
+          pip-audit
+
+  kluster-review:
+    name: "kluster.ai code review (non-blocking)"
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Non-blocking per architecture spec
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: kluster review placeholder
+        run: echo "kluster.ai review step — configure via platform.kluster.ai"

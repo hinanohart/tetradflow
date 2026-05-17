@@ -1,0 +1,61 @@
+name: Deploy HF Spaces
+
+on:
+  workflow_call:  # Called from release.yml
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    name: "Push spaces/ to HuggingFace Spaces"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install huggingface-hub
+        run: pip install huggingface-hub --quiet
+
+      - name: Deploy to HF Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}  # R11: token from secret only
+          # M5 fix (2026-05-17): pass HF_SPACES_REPO_ID through env so the
+          # Python block actually sees it (previously read os.environ but
+          # was never set, silently making every deploy a no-op).
+          HF_SPACES_REPO_ID: ${{ vars.HF_SPACES_REPO_ID }}
+        run: |
+          python - <<'EOF'
+          import os
+          import sys
+          from huggingface_hub import HfApi
+
+          token = os.environ.get("HF_TOKEN")
+          if not token:
+              print("HF_TOKEN not set; skipping Spaces deploy.", flush=True)
+              sys.exit(0)
+
+          spaces_repo = os.environ.get("HF_SPACES_REPO_ID", "")
+          if not spaces_repo:
+              print("HF_SPACES_REPO_ID not configured; skipping.", flush=True)
+              sys.exit(0)
+
+          api = HfApi(token=token)
+          api.create_repo(
+              repo_id=spaces_repo,
+              repo_type="space",
+              space_sdk="gradio",
+              exist_ok=True,
+          )
+          api.upload_folder(
+              folder_path="spaces/",
+              repo_id=spaces_repo,
+              repo_type="space",
+              commit_message=f"Deploy from CI",
+          )
+          print(f"Deployed to https://huggingface.co/spaces/{spaces_repo}", flush=True)
+          EOF

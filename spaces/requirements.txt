@@ -1,0 +1,10 @@
+torch>=2.1
+diffusers>=0.27
+transformers>=4.40
+gradio>=4.28
+spaces>=0.24
+safetensors>=0.4
+scikit-learn>=1.4
+einops>=0.7
+huggingface-hub>=0.22
+numpy>=1.24

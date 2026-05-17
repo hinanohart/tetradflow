@@ -1,0 +1,32 @@
+version: 2
+
+# Dependabot config for TetradFlow.
+# Weekly cadence + ignore the heavy ML stack: torch / transformers / diffusers
+# move too quickly for automated minor-bumps to be safe (BF16 dtype contracts,
+# tokenizer behaviour, Flux callback API all break across minor versions). Bump
+# those manually with smoke-test verification.
+
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    ignore:
+      - dependency-name: "torch"
+      - dependency-name: "transformers"
+      - dependency-name: "diffusers"
+      - dependency-name: "numpy"
+      - dependency-name: "scikit-learn"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
