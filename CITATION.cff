@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "McLuhan Tetrad as inductive bias in Janus-Pro + Flux: SAE feature alignment + 4-stage flow distillation"
+authors:
+  - family-names: "Hart"
+    given-names: "Hinano"
+    alias: "hinanohart"
+type: software
+license: "NOASSERTION"
+repository-code: "https://github.com/hinanohart/tetradflow"
+url: "https://pypi.org/project/tetradflow/"
+version: "0.0.1"
+date-released: "2026-05-17"
+keywords:
+  - "flow-matching"
+  - "flux"
+  - "janus-pro"
+  - "mcluhan"
+  - "multimodal"
+  - "python"
+  - "sparse-autoencoder"
+  - "tetrad"
