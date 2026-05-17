@@ -1,7 +1,7 @@
 # TetradFlow
 
 [![CI](https://github.com/hinanohart/tetradflow/actions/workflows/ci.yml/badge.svg)](https://github.com/hinanohart/tetradflow/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/tetradflow.svg)](https://pypi.org/project/tetradflow/)
+[![PyPI](https://img.shields.io/badge/PyPI-pending%20publication-lightgrey)](https://github.com/hinanohart/tetradflow)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
@@ -31,8 +31,11 @@ component descriptions.
 
 ## Installation
 
+> **Note (v0.0.1.dev0):** PyPI publication is pending (Trusted Publisher not yet configured).
+> Install from source until the first PyPI release lands:
+
 ```bash
-pip install tetradflow
+pip install git+https://github.com/hinanohart/tetradflow
 ```
 
 For development:
