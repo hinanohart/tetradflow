@@ -279,23 +279,30 @@ echo ""
 echo "=== S6.6: Branch protection on main ==="
 if [[ "$MODE" == "--execute" ]]; then
     confirm
-    echo "  Waiting 30s for CI to register status-check contexts..."
-    sleep 30
+    echo "  Waiting 45s for CI to register status-check contexts..."
+    sleep 45
+    # gh CLI's -F flag cannot send a JSON null for `restrictions`, so use a
+    # JSON heredoc + --input. Tested 2026-05-18.
+    tmp_payload=$(mktemp)
+    cat > "$tmp_payload" <<JSON
+{
+  "required_status_checks": {"strict": true, "contexts": ["Test (Python 3.11)"]},
+  "enforce_admins": false,
+  "required_pull_request_reviews": {"required_approving_review_count": 1, "dismiss_stale_reviews": true},
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+JSON
     run gh api -X PUT \
         "/repos/${TF_REPO_OWNER}/${TF_REPO_NAME}/branches/main/protection" \
-        -F "required_status_checks[strict]=true" \
-        -F "required_status_checks[contexts][]=Test (Python 3.11)" \
-        -F "enforce_admins=false" \
-        -F "required_pull_request_reviews[required_approving_review_count]=1" \
-        -F "required_pull_request_reviews[dismiss_stale_reviews]=true" \
-        -F "restrictions=" \
-        -F "allow_force_pushes=false" \
-        -F "allow_deletions=false"
-    # Note: only `Test (Python 3.11)` is required. 3.10/3.12 are advisory
-    # (matrix visibility) and `Security scan` is non-blocking by design
-    # (pip-audit advisory at ci.yml). Add more contexts later if desired.
+        --input "$tmp_payload"
+    rm -f "$tmp_payload"
+    # Only `Test (Python 3.11)` is required. 3.10/3.12 stay advisory.
+    # `Security scan` is also advisory because pip-audit may surface unfixed
+    # torch CVEs that would otherwise permanently block merges.
 else
-    echo "+ sleep 30 && gh api -X PUT branches/main/protection (require 'Test (Python 3.11)')"
+    echo "+ sleep 45 && gh api -X PUT branches/main/protection (require 'Test (Python 3.11)')"
 fi
 
 # ==========================================================================
