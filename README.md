@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/hinanohart/tetradflow/actions/workflows/ci.yml/badge.svg)](https://github.com/hinanohart/tetradflow/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/badge/PyPI-pending%20publication-lightgrey)](https://github.com/hinanohart/tetradflow)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 **McLuhan's Tetrad as inductive bias in Janus-Pro + Flux.**
