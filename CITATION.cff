@@ -6,7 +6,7 @@ authors:
     given-names: "Hinano"
     alias: "hinanohart"
 type: software
-license: "NOASSERTION"
+license: MIT
 repository-code: "https://github.com/hinanohart/tetradflow"
 url: "https://pypi.org/project/tetradflow/"
 version: "0.0.1"
