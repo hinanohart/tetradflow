@@ -69,7 +69,7 @@ jobs:
           fetch-depth: 0  # gitleaks needs full history for secret-leak detection
 
       - name: Gitleaks (secret scan, R11)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No org licence required for public repos. Disable artifact upload
