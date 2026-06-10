@@ -35,6 +35,31 @@ from tetradflow.hooks import JANUS_HOOK_LAYER, JanusActivationHook
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Default model + pinned revision
+# ---------------------------------------------------------------------------
+# ``trust_remote_code=True`` executes Python shipped in the model repo at load
+# time. Pinning the default model to a verified commit SHA prevents a compromised
+# or re-tagged upstream repo from silently changing that remote code. Callers may
+# still override the revision explicitly.
+DEFAULT_JANUS_MODEL_ID = "deepseek-ai/Janus-Pro-7B"
+PINNED_JANUS_REVISION = "5c3eb3fb2a3b61094328465ba61fcd4272090d67"
+
+
+def resolve_janus_revision(model_id: str, revision: str | None = None) -> str | None:
+    """Resolve the revision to load for a Janus model.
+
+    Returns the caller-supplied ``revision`` if given; otherwise pins the known
+    default model to its verified commit SHA. For any other (caller-chosen)
+    model id, returns ``None`` so transformers uses its own default.
+    """
+    if revision is not None:
+        return revision
+    if model_id == DEFAULT_JANUS_MODEL_ID:
+        return PINNED_JANUS_REVISION
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Type aliases
 # ---------------------------------------------------------------------------
 VramMode = Literal["bf16"]
@@ -57,15 +82,17 @@ class TetradFlowPipeline:
 
     def __init__(
         self,
-        janus_model_id: str = "deepseek-ai/Janus-Pro-7B",
+        janus_model_id: str = DEFAULT_JANUS_MODEL_ID,
         flux_model_id: str = "black-forest-labs/FLUX.1-schnell",
         sae_path: str | Path | None = None,
         axes_map_path: str | Path | None = None,
         vram_mode: VramMode = "bf16",
         device: str | None = None,
         gamma: float = 2.0,
+        janus_revision: str | None = None,
     ) -> None:
         self.janus_model_id = janus_model_id
+        self.janus_revision = janus_revision
         self.flux_model_id = flux_model_id
         self.sae_path = Path(sae_path) if sae_path else None
         self.axes_map_path = Path(axes_map_path) if axes_map_path else None
@@ -122,12 +149,14 @@ class TetradFlowPipeline:
                 AutoProcessor,
             )
 
-            logger.info("Loading Janus-Pro from %s", self.janus_model_id)
+            revision = resolve_janus_revision(self.janus_model_id, self.janus_revision)
+            logger.info("Loading Janus-Pro from %s (revision=%s)", self.janus_model_id, revision)
             self._janus_processor = AutoProcessor.from_pretrained(
-                self.janus_model_id, trust_remote_code=True
+                self.janus_model_id, revision=revision, trust_remote_code=True
             )
             self._janus = AutoModelForCausalLM.from_pretrained(
                 self.janus_model_id,
+                revision=revision,
                 torch_dtype=self._dtype(),
                 device_map=self.device,
                 trust_remote_code=True,
