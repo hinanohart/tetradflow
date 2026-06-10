@@ -1,0 +1,40 @@
+direction: down
+explanation: |md
+  ### TetradFlow
+  **McLuhan's Tetrad as inductive bias in Janus-Pro + Flux — embeds four media-law directions into image generation via SAE + CCA + ODE steering.**
+| {near: top-center}
+
+prompt: "① Text Prompt" {shape: oval; style: {fill: "#6366f1"; font-color: "#ffffff"; stroke: "#4338ca"; bold: true; font-size: 18}}
+janus: "② Janus-Pro 7B\nlayer 20 hook" {style: {fill: "#0ea5e9"; font-color: "#ffffff"; stroke: "#0369a1"; bold: true; font-size: 18}}
+
+feature_zone: "Feature Extraction" {
+  style: {fill: "#f0fdf4"; stroke: "#10b981"; font-color: "#065f46"; bold: true; font-size: 16}
+  sae: "③ BatchTopK SAE\n16K features k=64"
+  cca: "④ CCAAxisFinder\n4 Tetrad axes"
+  svd: "⑤ SVD Top-4 Basis\northonormal 4xD"
+  sae.style: {fill: "#dcfce7"; font-color: "#065f46"}
+  cca.style: {fill: "#dcfce7"; font-color: "#065f46"}
+  svd.style: {fill: "#dcfce7"; font-color: "#065f46"}
+}
+
+ode: "⑥ 4-Divergent ODE Step\nv_k = v + gamma times proj" {style: {fill: "#fef3c7"; font-color: "#92400e"; stroke: "#f59e0b"; bold: true; font-size: 16}}
+gauge: "JanusGaugeFlip\nSigLIP alpha + VQ gate" {style: {fill: "#fef3c7"; font-color: "#92400e"; stroke: "#f59e0b"; bold: true; font-size: 16}}
+flux: "⑦ Flux DiT\nschnell velocity field" {style: {fill: "#0ea5e9"; font-color: "#ffffff"; stroke: "#0369a1"; bold: true; font-size: 16}}
+output: "⑧ 1 Generated Image\nper axis per call" {shape: cylinder; style: {fill: "#fdf2f8"; font-color: "#9d174e"; stroke: "#ec4899"; bold: true; font-size: 16}}
+
+prompt -> janus: "① encode"
+janus -> feature_zone.sae: "② activations"
+feature_zone.sae -> feature_zone.cca: "③ sparse latents"
+feature_zone.cca -> feature_zone.svd: "④ axis directions"
+feature_zone.svd -> ode: "⑤ ortho basis"
+janus -> gauge: "② figure/ground"
+gauge -> flux: "⑥ condition"
+ode -> flux: "⑥ steer"
+flux -> output: "⑦ generate"
+
+legend: "Legend" {
+  near: bottom-center
+  style: {fill: "#f8fafc"; stroke: "#cbd5e1"; font-size: 13}
+  e: "● entry"; c: "● backbone"; p: "● features"; b: "● external model"; d: "● output"
+  e.style.font-color: "#4338ca"; c.style.font-color: "#0369a1"; p.style.font-color: "#10b981"; b.style.font-color: "#f59e0b"; d.style.font-color: "#ec4899"
+}

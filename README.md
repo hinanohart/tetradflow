@@ -25,28 +25,9 @@ and unit-tested but awaits the Diffusers callback API hook (P1 milestone T4).
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    Prompt[Text Prompt]
-    JanusPro[Janus-Pro 7B<br>layer 20 hook]
-    SAE[BatchTopK SAE<br>16K features k=64]
-    CCA[CCAAxisFinder<br>4 Tetrad axes]
-    SVD[SVD Top-4 Basis<br>orthonormal 4xD]
-    ODE[4-Divergent ODE Step<br>v_k = v + gamma times proj]
-    Flux[Flux DiT<br>schnell velocity field]
-    Gauge[JanusGaugeFlip<br>SigLIP alpha + VQ gate]
-    Output[1 Generated Image<br>per axis per call]
-
-    Prompt --> JanusPro
-    JanusPro -->|activations| SAE
-    SAE -->|sparse latents| CCA
-    CCA -->|axis directions| SVD
-    SVD -->|ortho basis| ODE
-    JanusPro -->|figure/ground| Gauge
-    Gauge --> Flux
-    ODE --> Flux
-    Flux --> Output
-```
+<div align="center">
+  <img src="docs/architecture.png" alt="tetradflow architecture" width="840">
+</div>
 
 ---
 
@@ -304,3 +285,4 @@ Base models:
 This is a research PoC. See [ROADMAP.md](ROADMAP.md) for open problems.
 Issues and PRs welcome. Please read [docs/p0_checklist.md](docs/p0_checklist.md)
 before proposing changes to the SAE or ODE components.
+
