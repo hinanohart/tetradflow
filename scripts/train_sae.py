@@ -130,15 +130,18 @@ def main(
     from transformers import AutoModelForCausalLM, AutoProcessor  # type: ignore[import-untyped]
 
     from tetradflow.hooks import JanusActivationHook
+    from tetradflow.pipeline import resolve_janus_revision
     from tetradflow.sae import BatchTopKSAE
 
-    logger.info("Loading Janus-Pro: %s", janus_model_id)
+    revision = resolve_janus_revision(janus_model_id)
+    logger.info("Loading Janus-Pro: %s (revision=%s)", janus_model_id, revision)
     # NOTE: processor will be needed when scaffold becomes a real training loop
     # (currently the dummy-data path bypasses the processor). Bound to _ to
     # document the intent without tripping ruff F841.
-    _ = AutoProcessor.from_pretrained(janus_model_id, trust_remote_code=True)
+    _ = AutoProcessor.from_pretrained(janus_model_id, revision=revision, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         janus_model_id,
+        revision=revision,
         torch_dtype=torch.bfloat16,
         device_map=device,
         trust_remote_code=True,

@@ -97,11 +97,16 @@ def collect_sae_features(
     from transformers import AutoModelForCausalLM, AutoProcessor  # type: ignore[import-untyped]
 
     from tetradflow.hooks import JanusActivationHook
+    from tetradflow.pipeline import resolve_janus_revision
 
-    logger.info("Loading Janus-Pro: %s", janus_model_id)
-    processor = AutoProcessor.from_pretrained(janus_model_id, trust_remote_code=True)
+    revision = resolve_janus_revision(janus_model_id)
+    logger.info("Loading Janus-Pro: %s (revision=%s)", janus_model_id, revision)
+    processor = AutoProcessor.from_pretrained(
+        janus_model_id, revision=revision, trust_remote_code=True
+    )
     model = AutoModelForCausalLM.from_pretrained(
         janus_model_id,
+        revision=revision,
         torch_dtype=torch.bfloat16,
         device_map=device,
         trust_remote_code=True,
