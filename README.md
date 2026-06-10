@@ -10,24 +10,56 @@
 > **Research prototype — not a validated cognitive model.**
 > See [docs/disclaimer.md](docs/disclaimer.md) for scope limitations.
 
-TetradFlow embeds McLuhan's four media laws (Enhance / Obsolesce / Retrieve / Reverse)
-as an inductive bias in a multimodal generation pipeline, via Sparse Autoencoder (SAE)
-feature alignment and 4-divergent flow ODE sampling.
+TetradFlow embeds McLuhan's four media laws — Enhance, Obsolesce, Retrieve, Reverse — as an
+inductive bias in a multimodal image-generation pipeline. It works by training a Sparse
+Autoencoder (SAE) on Janus-Pro layer-20 activations, using CCA to locate the four Tetrad
+directions in feature space, then injecting those directions into Flux's velocity field at
+sampling time via a 4-divergent ODE step. The result is four generated images per prompt,
+each steered toward a different Tetrad axis. The current release (`v0.0.1.dev0`) supports
+CFG-baseline generation end-to-end; Tetrad-steered sampling (`mode="tetrad"`) is implemented
+and unit-tested but awaits the Diffusers callback API hook (P1 milestone T4).
 
-## Key Ideas
-
-| Component | What it does |
-|---|---|
-| **BatchTopK SAE** | Unsupervised feature extraction from Janus-Pro layer 20 (arXiv:2412.06410) |
-| **CCA axis finder** | Post-hoc identification of 4 Tetrad axes in SAE feature space (P0-2) |
-| **SVD top-4 basis** | Order-independent orthogonalisation of Tetrad directions (P0-3) |
-| **4-divergent ODE** | Injects Tetrad axis projections into Flux velocity field |
-| **JanusGaugeFlip** | Figure/Ground blending via SigLIP α + VQ (1-α) gate |
+---
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for the full ASCII diagram and
-component descriptions.
+```mermaid
+flowchart TD
+    Prompt[Text Prompt]
+    JanusPro[Janus-Pro 7B\nlayer 20 hook]
+    SAE[BatchTopK SAE\n16K features k=64]
+    CCA[CCAAxisFinder\n4 Tetrad axes]
+    SVD[SVD Top-4 Basis\northonormal 4xD]
+    ODE[4-Divergent ODE Step\nv_k = v + gamma times proj]
+    Flux[Flux DiT\nschnell velocity field]
+    Gauge[JanusGaugeFlip\nSigLIP alpha + VQ gate]
+    Output[4 Generated Images\none per Tetrad axis]
+
+    Prompt --> JanusPro
+    JanusPro -->|activations| SAE
+    SAE -->|sparse latents| CCA
+    CCA -->|axis directions| SVD
+    SVD -->|ortho basis| ODE
+    JanusPro -->|figure/ground| Gauge
+    Gauge --> Flux
+    ODE --> Flux
+    Flux --> Output
+```
+
+---
+
+## Key Components
+
+| Component | File | What it does |
+|---|---|---|
+| **BatchTopK SAE** | `src/tetradflow/sae.py` | Unsupervised feature extraction from Janus-Pro layer 20 (arXiv:2412.06410) |
+| **CCAAxisFinder** | `src/tetradflow/cca.py` | Post-hoc identification of 4 Tetrad axes in SAE feature space (P0-2) |
+| **SVD top-4 basis** | `src/tetradflow/ode.py` | Order-independent orthogonalisation of Tetrad directions via SVD (P0-3) |
+| **4-divergent ODE** | `src/tetradflow/ode.py` | Injects Tetrad axis projections into Flux velocity field |
+| **JanusGaugeFlip** | `src/tetradflow/gauge.py` | Figure/Ground blending via SigLIP alpha + VQ (1-alpha) gate |
+| **TetradFlowPipeline** | `src/tetradflow/pipeline.py` | Orchestrates all components end-to-end |
+
+---
 
 ## Installation
 
@@ -45,6 +77,8 @@ git clone https://github.com/hinanohart/tetradflow
 cd tetradflow
 pip install -e ".[dev]"
 ```
+
+---
 
 ## Quick Start
 
@@ -78,6 +112,31 @@ image.save("output.png")
 pipeline.unload()
 ```
 
+---
+
+## How It Works
+
+1. **Feature extraction** — A BatchTopK SAE is trained on Janus-Pro layer-20 residual-stream
+   activations. This gives a 16 384-dimensional sparse feature space.
+
+2. **Axis identification** — CCA post-hoc maps McLuhan's four Tetrad labels (from 60 manually
+   annotated seed examples) to directions in the SAE feature space. Six pairwise cosine
+   similarities must all be below 0.3 before the PoC proceeds (P0-2 gate).
+
+3. **Orthogonalisation** — The four raw direction vectors are orthonormalised via
+   `torch.linalg.svd` (truncated top-4). Gram-Schmidt is explicitly forbidden (P0-3) to
+   avoid axis-order dependence.
+
+4. **ODE injection** — At each Flux denoising step, the Tetrad projection is added to the
+   velocity field: `v_k = v_theta(x,t,c_text) + gamma * <delta, e_k> * e_k` for each of
+   the four axes k, producing four latent trajectories.
+
+5. **Figure/Ground gating** — JanusGaugeFlip blends Janus-Pro's SigLIP path (figure) with
+   its VQ discrete path (ground) via a learned alpha gate, mitigating figure/ground
+   conflation (F4 mitigation).
+
+---
+
 ## CLI
 
 ```bash
@@ -100,6 +159,8 @@ tetradflow generate "A city at night" \
 # Run P0-4 human gate check
 tetradflow gate-check --eval-json checkpoints/eval_output.json
 ```
+
+---
 
 ## Evaluation
 
@@ -140,36 +201,44 @@ print(eval_summary("eval/forced_choice.csv"))
 # Requires kappa >= 0.7
 ```
 
+---
+
 ## P0 Checklist
 
 Before the 3-month PoC begins, all 4 items must pass:
 
-- [ ] **P0-1**: Seed-60 manual labels with Cohen's κ ≥ 0.7 (user + 1 rater, ~1 week)
+- [ ] **P0-1**: Seed-60 manual labels with Cohen's kappa >= 0.7 (user + 1 rater, ~1 week)
 - [ ] **P0-2**: SAE cosine orthogonality < 0.3 for all 6 axis pairs
-- [ ] **P0-3**: No Gram-Schmidt — SVD top-4 only (`grep -r gram_schmidt src/` → empty)
+- [ ] **P0-3**: No Gram-Schmidt — SVD top-4 only (`grep -r gram_schmidt src/` -> empty)
 - [ ] **P0-4**: Human gate enforced — no auto-degradation on CI red
 
 See [docs/p0_checklist.md](docs/p0_checklist.md) for verification commands.
+
+---
+
+## VRAM Requirements
+
+| Mode | Models loaded | VRAM |
+|---|---|---|
+| BF16 (default) | Janus-Pro 7B + Flux.1-schnell + SAE | ~52 GB (A100/H100 recommended) |
+| SAE-only (Plan C) | SAE library standalone | < 2 GB |
+
+> **Note**: FP8 quantization via torchao is a P1 milestone (NOT yet implemented).
+
+---
 
 ## HF Spaces Demo
 
 Live demo: HuggingFace Spaces (planned — will appear at `hinanohart/tetradflow`
 once the SAE artifact lands; not deployed in the GitHub-only v0.0.1.dev0 milestone).
 
+---
+
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md).
 
-## Citation
-
-```bibtex
-@software{tetradflow2026,
-  title  = {TetradFlow: McLuhan Tetrad as Inductive Bias in Janus-Pro + Flux},
-  year   = {2026},
-  url    = {https://github.com/hinanohart/tetradflow},
-  note   = {Research prototype. Version 0.0.1.dev0.}
-}
-```
+---
 
 ## Security
 
@@ -194,6 +263,21 @@ executes arbitrary Python code from the model repository at load time.
 The same applies to `scripts/train_sae.py` and `scripts/identify_axes_cca.py`,
 which load Janus-Pro the same way.
 
+---
+
+## Citation
+
+```bibtex
+@software{tetradflow2026,
+  title  = {TetradFlow: McLuhan Tetrad as Inductive Bias in Janus-Pro + Flux},
+  year   = {2026},
+  url    = {https://github.com/hinanohart/tetradflow},
+  note   = {Research prototype. Version 0.0.1.dev0.}
+}
+```
+
+---
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
@@ -210,6 +294,8 @@ Base models:
 - Show-o: Apache 2.0 (NUS) — *not yet integrated; v1.0 milestone*
 - LanguageBind: MIT (PKU) — *not yet integrated; v1.0 milestone*
 - SAELens: MIT (optional `[research]` extra only)
+
+---
 
 ## Contributing
 
