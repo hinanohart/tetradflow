@@ -26,14 +26,14 @@ and unit-tested but awaits the Diffusers callback API hook (P1 milestone T4).
 ```mermaid
 flowchart TD
     Prompt[Text Prompt]
-    JanusPro[Janus-Pro 7B\nlayer 20 hook]
-    SAE[BatchTopK SAE\n16K features k=64]
-    CCA[CCAAxisFinder\n4 Tetrad axes]
-    SVD[SVD Top-4 Basis\northonormal 4xD]
-    ODE[4-Divergent ODE Step\nv_k = v + gamma times proj]
-    Flux[Flux DiT\nschnell velocity field]
-    Gauge[JanusGaugeFlip\nSigLIP alpha + VQ gate]
-    Output[4 Generated Images\none per Tetrad axis]
+    JanusPro[Janus-Pro 7B<br>layer 20 hook]
+    SAE[BatchTopK SAE<br>16K features k=64]
+    CCA[CCAAxisFinder<br>4 Tetrad axes]
+    SVD[SVD Top-4 Basis<br>orthonormal 4xD]
+    ODE[4-Divergent ODE Step<br>v_k = v + gamma times proj]
+    Flux[Flux DiT<br>schnell velocity field]
+    Gauge[JanusGaugeFlip<br>SigLIP alpha + VQ gate]
+    Output[4 Generated Images<br>one per Tetrad axis]
 
     Prompt --> JanusPro
     JanusPro -->|activations| SAE
