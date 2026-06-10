@@ -14,8 +14,10 @@ TetradFlow embeds McLuhan's four media laws — Enhance, Obsolesce, Retrieve, Re
 inductive bias in a multimodal image-generation pipeline. It works by training a Sparse
 Autoencoder (SAE) on Janus-Pro layer-20 activations, using CCA to locate the four Tetrad
 directions in feature space, then injecting those directions into Flux's velocity field at
-sampling time via a 4-divergent ODE step. The result is four generated images per prompt,
-each steered toward a different Tetrad axis. The current release (`v0.0.1.dev0`) supports
+sampling time via a 4-divergent ODE step. The intended result is one generated image per
+Tetrad axis (four per prompt when all axes are sampled), but this requires calling
+`generate()` once per axis; `mode="tetrad"` currently raises `NotImplementedError`
+pending the Flux callback wiring (P1 milestone T4). The current release (`v0.0.1.dev0`) supports
 CFG-baseline generation end-to-end; Tetrad-steered sampling (`mode="tetrad"`) is implemented
 and unit-tested but awaits the Diffusers callback API hook (P1 milestone T4).
 
@@ -33,7 +35,7 @@ flowchart TD
     ODE[4-Divergent ODE Step<br>v_k = v + gamma times proj]
     Flux[Flux DiT<br>schnell velocity field]
     Gauge[JanusGaugeFlip<br>SigLIP alpha + VQ gate]
-    Output[4 Generated Images<br>one per Tetrad axis]
+    Output[1 Generated Image<br>per axis per call]
 
     Prompt --> JanusPro
     JanusPro -->|activations| SAE
